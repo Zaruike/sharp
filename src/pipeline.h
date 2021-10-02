@@ -154,6 +154,11 @@ struct PipelineBaton {
   int jp2TileHeight;
   int jp2TileWidth;
   std::string jp2ChromaSubsampling;
+  int jxlQuality;
+  int jxlTier;
+  bool jxlLossless;
+  double jxlDistance;
+  int jxlEffort;
   int webpQuality;
   int webpAlphaQuality;
   bool webpNearLossless;
@@ -291,6 +296,11 @@ struct PipelineBaton {
     jp2TileHeight(512),
     jp2TileWidth(512),
     jp2ChromaSubsampling("4:4:4"),
+    jxlQuality(80),
+    jxlTier(0),
+    jxlLossless(false),
+    jxlDistance(1.0),
+    jxlEffort(4),
     webpQuality(80),
     webpAlphaQuality(100),
     webpNearLossless(false),

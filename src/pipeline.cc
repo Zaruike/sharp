@@ -792,6 +792,21 @@ class PipelineWorker : public Napi::AsyncWorker {
           } else {
             baton->channels = std::min(baton->channels, 3);
           }
+        } else if (baton->formatOut == "jxl" || (baton->formatOut == "input"
+          && inputImageType == sharp::ImageType::JXL)) {
+          //Write JXL to Buffer
+          sharp::AssertImageTypeDimensions(image, sharp::ImageType::JXL);
+          VipsArea *area = reinterpret_cast<VipsArea*>(image.jxlsave_buffer(VImage::option()
+            ->set("Q", baton->jxlQuality)
+            ->set("lossless", baton->jxlLossless)
+            ->set("effort", baton->jxlEffort)
+            ->set("tier", baton->jxlTier)
+            ->set("distance", baton->jxlDistance)));
+          baton->bufferOut = static_cast<char*>(area->data);
+          baton->bufferOutLength = area->length;
+          area->free_fn = nullptr;
+          vips_area_unref(area);
+          baton->formatOut = "jxl";
         } else if (baton->formatOut == "jp2" || (baton->formatOut == "input"
           && inputImageType == sharp::ImageType::JP2)) {
           // Write JP2 to Buffer
@@ -940,13 +955,14 @@ class PipelineWorker : public Napi::AsyncWorker {
         bool const isGif = sharp::IsGif(baton->fileOut);
         bool const isTiff = sharp::IsTiff(baton->fileOut);
         bool const isJp2 = sharp::IsJp2(baton->fileOut);
+        bool const isJxl = sharp::IsJxl(baton->fileOut);
         bool const isHeif = sharp::IsHeif(baton->fileOut);
         bool const isDz = sharp::IsDz(baton->fileOut);
         bool const isDzZip = sharp::IsDzZip(baton->fileOut);
         bool const isV = sharp::IsV(baton->fileOut);
         bool const mightMatchInput = baton->formatOut == "input";
         bool const willMatchInput = mightMatchInput &&
-         !(isJpeg || isPng || isWebp || isGif || isTiff || isJp2 || isHeif || isDz || isDzZip || isV);
+         !(isJpeg || isPng || isWebp || isGif || isTiff || isJxl || isJp2 || isHeif || isDz || isDzZip || isV);
 
         if (baton->formatOut == "jpeg" || (mightMatchInput && isJpeg) ||
           (willMatchInput && inputImageType == sharp::ImageType::JPEG)) {
@@ -978,6 +994,17 @@ class PipelineWorker : public Napi::AsyncWorker {
             ->set("tile_height", baton->jp2TileHeight)
             ->set("tile_width", baton->jp2TileWidth));
             baton->formatOut = "jp2";
+        } else if (baton->formatOut == "jxl" || (mightMatchInput && isJxl) ||
+          (willMatchInput && (inputImageType == sharp::ImageType::JXL))) {
+           // Write JXL to file
+           sharp::AssertImageTypeDimensions(image, sharp::ImageType::JXL);
+           image.jp2ksave(const_cast<char*>(baton->fileOut.data()), VImage::option()
+            ->set("Q", baton->jxlQuality)
+            ->set("lossless", baton->jxlLossless)
+            ->set("effort", baton->jxlEffort)
+            ->set("tier", baton->jxlTier)
+            ->set("distance", baton->jxlDistance));
+            baton->formatOut = "jxl";
         } else if (baton->formatOut == "png" || (mightMatchInput && isPng) || (willMatchInput &&
           (inputImageType == sharp::ImageType::PNG || (inputImageType == sharp::ImageType::GIF && !supportsGifOutput) ||
            inputImageType == sharp::ImageType::SVG))) {
@@ -1474,6 +1501,11 @@ Napi::Value pipeline(const Napi::CallbackInfo& info) {
   baton->jp2TileHeight = sharp::AttrAsUint32(options, "jp2TileHeight");
   baton->jp2TileWidth = sharp::AttrAsUint32(options, "jp2TileWidth");
   baton->jp2ChromaSubsampling = sharp::AttrAsStr(options, "jp2ChromaSubsampling");
+  baton->jxlQuality = sharp::AttrAsUint32(options, "jxlQuality");
+  baton->jxlTier = sharp::AttrAsUint32(options, "jxlTier");
+  baton->jxlLossless = sharp::AttrAsBool(options, "jxlLossless");
+  baton->jxlDistance = sharp::AttrAsDouble(options, "jxlDistance");
+  baton->jxlEffort = sharp::AttrAsUint32(options, "jxlEffort");
   baton->webpQuality = sharp::AttrAsUint32(options, "webpQuality");
   baton->webpAlphaQuality = sharp::AttrAsUint32(options, "webpAlphaQuality");
   baton->webpLossless = sharp::AttrAsBool(options, "webpLossless");
